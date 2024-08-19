@@ -6,6 +6,7 @@ const Author = require('./models/author')
 const User = require('./models/user')
 const { GraphQLError } = require('graphql')
 const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
 
 require('dotenv').config()
 
@@ -37,6 +38,7 @@ const typeDefs = `
 
   type User {
     username: String!
+    passwordHash: String!
     favoriteGenre: String!
     id: ID!
   }
@@ -69,6 +71,7 @@ const typeDefs = `
     ): Author
     createUser(
       username: String!
+      password: String!
       favoriteGenre: String!
     ): User
     login(
@@ -141,8 +144,9 @@ const resolvers = {
       )
     },
     createUser: async (root, args) => {
-      const { username, favoriteGenre } = args
-      const user = new User({ username, favoriteGenre })
+      const { username, password, favoriteGenre } = args
+      const passwordHash = await bcrypt.hash(password, 10)
+      const user = new User({ username, passwordHash, favoriteGenre })
 
       try {
         await user.save()
@@ -157,7 +161,7 @@ const resolvers = {
     login: async (root, args) => {
       const user = await User.findOne({ username: args.username })
 
-      if (!user || args.password !== 'secret') {
+      if (!user || !(await bcrypt.compare(args.password, user.passwordHash))) {
         throw new GraphQLError('Wrong credentials', {
           extensions: { code: 'BAD_USER_INPUT', }
         })

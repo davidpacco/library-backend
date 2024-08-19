@@ -7,6 +7,10 @@ const schema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  passwordHash: {
+    type: String,
+    required: true
+  },
   favoriteGenre: {
     type: String,
     required: true,
