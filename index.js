@@ -83,12 +83,17 @@ const typeDefs = `
 
 const resolvers = {
   Author: {
-    bookCount: (root) => books.filter(b => b.author === root.name).length
+    bookCount: async (root) => Book.find({}).where('author', root.id).countDocuments()
   },
   Query: {
     bookCount: async () => Book.collection.countDocuments(),
     authorCount: async () => Author.collection.countDocuments(),
-    allBooks: async (root, args) => Book.find({}).populate('author'),
+    allBooks: async (root, args) => {
+      if (args.genre) {
+        return Book.find({ genres: { $all: args.genre } }).populate('author')
+      }
+      return Book.find({}).populate('author')
+    },
     allAuthors: async () => Author.find({}),
     me: (root, args, { currentUser }) => currentUser,
   },
@@ -104,18 +109,22 @@ const resolvers = {
         })
       }
 
-      try {
-        await author.save()
-      } catch (error) {
-        throw new GraphQLError('Saving author failed', {
-          extensions: {
-            code: 'BAD_USER_INPUT',
-            invalidArgs: args.author
-          }
-        })
+      const authorInDb = await Author.find({ name: author.name })
+
+      if (!authorInDb) {
+        try {
+          await author.save()
+        } catch (error) {
+          throw new GraphQLError('Saving author failed', {
+            extensions: {
+              code: 'BAD_USER_INPUT',
+              invalidArgs: args.author
+            }
+          })
+        }
       }
 
-      const book = new Book({ ...args, author: author._id })
+      const book = new Book({ ...args, author: authorInDb ? authorInDb._id : author._id })
 
       try {
         await book.save()
@@ -128,7 +137,7 @@ const resolvers = {
         })
       }
 
-      return book
+      return book.populate('author')
     },
     editAuthor: async (root, args, { currentUser }) => {
       if (!currentUser) {
