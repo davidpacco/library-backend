@@ -6,9 +6,6 @@ const { PubSub } = require('graphql-subscriptions')
 const pubsub = new PubSub()
 
 const resolvers = {
-  Author: {
-    bookCount: async (root) => Book.find({}).where('author', root.id).countDocuments()
-  },
   Query: {
     bookCount: async () => Book.collection.countDocuments(),
     authorCount: async () => Author.collection.countDocuments(),
@@ -35,7 +32,10 @@ const resolvers = {
 
       const authorInDb = await Author.findOne({ name: author.name })
 
-      if (!authorInDb) {
+      if (authorInDb) {
+        authorInDb.bookCount += 1
+        await authorInDb.save()
+      } else {
         try {
           await author.save()
         } catch (error) {
